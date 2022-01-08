@@ -3,6 +3,7 @@
 #include <dlfcn.h>
 #include <string.h>
 #include <stdlib.h>
+#include <malloc.h>
 #include <dirent.h>
 #include <unistd.h>
 
@@ -41,6 +42,10 @@ int read_plugins_dir(char **plugins, char* path)
 int main(int argc, char *argv[])
 {
     char* path = malloc(sizeof(char) * 256);
+    char **plugins;
+    int (*arithmetic_operation)(int, int);
+    void *handle;
+    int operation, num1, num2;
     if (argc == 2)
     {
         strcpy(path ,argv[1]);
@@ -48,13 +53,8 @@ int main(int argc, char *argv[])
     else
     {
         strcpy(path, "./lib/");
-    }
-    
-    char **plugins;
-    int (*arithmetic_operation)(int, int);
-    void *handle;
-    int operation, num1, num2;
-    plugins = (char**)malloc(MAX_COUNT_PLUGINS);
+    }    
+    plugins = (char**)malloc(sizeof(char*) * MAX_COUNT_PLUGINS);
     for (int i = 0; i < MAX_COUNT_PLUGINS; i++)
     {
         plugins[i] = malloc(sizeof(char) * 256);
@@ -91,10 +91,10 @@ int main(int argc, char *argv[])
     free(string_path);
     free(string_name_func - 3);
     free(path);
-    free(plugins);
-    for (int i = 0; i < count; i++)
+    for (int i = 0; i < MAX_COUNT_PLUGINS; i++)
     {
         free(plugins[i]);
     }
+    free(plugins);
     return 0;
 }
