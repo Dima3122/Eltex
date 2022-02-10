@@ -8,8 +8,8 @@
 #include <unistd.h>
 
 int MAX_COUNT_PLUGINS = 10;
-
-int read_plugins_dir(char **plugins, char* path)
+char **plugins;
+int read_plugins_dir(/*char **plugins,*/ char* path)
 {
     struct dirent *entry;
     int i = 0;
@@ -25,7 +25,7 @@ int read_plugins_dir(char **plugins, char* path)
             strcpy(plugins[i], entry->d_name);
             i++;
         }
-        if (i > MAX_COUNT_PLUGINS)
+        if (i >= MAX_COUNT_PLUGINS)
         {
             plugins = realloc(plugins, i*2);
             for (int j = i; j < i*2; j++)
@@ -42,7 +42,7 @@ int read_plugins_dir(char **plugins, char* path)
 int main(int argc, char *argv[])
 {
     char* path = malloc(sizeof(char) * 256);
-    char **plugins;
+    //char **plugins;
     int (*arithmetic_operation)(int, int);
     void *handle;
     int operation, num1, num2;
@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
     {
         plugins[i] = malloc(sizeof(char) * 256);
     }
-    int count = read_plugins_dir(plugins, path);
+    int count = read_plugins_dir(path);
     printf("%d\n", count);
     printf("Выберите операцию:\n");
     for (int i = 0; i < count; i++)
