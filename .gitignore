@@ -6,6 +6,8 @@
 !*.c
 !*.h
 !src
+!CMakeLists.txt
+!include
 !work1
 !work2
 !work3
