@@ -1,86 +1,136 @@
-#include <stdio.h>
-#include <pthread.h>
 #include <malloc.h>
+#include <pthread.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
 
-#define THREADS 8
 #define COUNT_SHOPS 5
-#define COUNT_BUYERS 3
-#define COUNT_SHOPS 5
-#define PTHREAD_ERROR -1
-
-int shops[COUNT_SHOPS];
+#define COUNT_CUSTOMERS 3
 
 typedef struct
 {
-    int ID;
-    int Left_to_buy;
-    int TimeToSleep;
-} Buyer;
+    int Id;
+    int TimeOfSleep;
+    int LeftToBuy;
+} Customer;
 
 typedef struct
 {
-    int how_to_replenish_the_store;
-    int TimeToSleep;
+    int TimeOfSleep;
+    int Capacity;
 } Supplier;
 
+int shops[COUNT_SHOPS];
 pthread_mutex_t MUTEX[COUNT_SHOPS] = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t UPDATE_SHOP = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t COMPLITED_CUSTOMERS_MUTEX = PTHREAD_MUTEX_INITIALIZER;
+int COUNT_COMPLITED_CUSTOMERS = 0;
 
 void *buy(void *pthreadData)
 {
-    Buyer *buyer = (Buyer *)pthreadData;
-    return 0;
-}
-
-void *bring_goods_to_the_store(void *pthreadData)
-{
-    Supplier *supplier = (Supplier *)pthreadData;
+    Customer *customer = (Customer *)pthreadData;
+    int i = 0;
     while (1)
     {
-        for (int i = 0; i < COUNT_SHOPS; i++)
+        int previousLeftToBuy = customer->LeftToBuy;
+        if (pthread_mutex_trylock(&MUTEX[i]) == 0)
         {
-            if (shops[i] == 0)
+            if (customer->LeftToBuy >= shops[i])
             {
-                pthread_mutex_lock(&UPDATE_SHOP);
-                shops[i]+= supplier->how_to_replenish_the_store;
-                pthread_mutex_unlock(&UPDATE_SHOP);
-                sleep(supplier->TimeToSleep); 
-            }   
+                customer->LeftToBuy -= shops[i];
+                shops[i] = 0;
+            }
+            else
+            {
+                shops[i] -= customer->LeftToBuy;
+                customer->LeftToBuy = 0;
+            }
+            pthread_mutex_unlock(&MUTEX[i]);
+            if (customer->LeftToBuy == 0)
+            {
+                pthread_mutex_lock(&COMPLITED_CUSTOMERS_MUTEX);
+                COUNT_COMPLITED_CUSTOMERS++;
+                pthread_mutex_unlock(&COMPLITED_CUSTOMERS_MUTEX);
+                
+                printf("Customer %d = %d\n", customer->Id, customer->LeftToBuy);
+                pthread_exit(0);
+            }
+            if (previousLeftToBuy != customer->LeftToBuy)
+            {
+                printf("Customer %d = %d\n", customer->Id, customer->LeftToBuy);
+                sleep(customer->TimeOfSleep);
+            }
         }
+        i == COUNT_SHOPS - 1 ? i = 0 : i++;
     }
-    return 0;
+}
+
+void *deliver(void *pthreadData)
+{
+    Supplier *supplier = (Supplier *)pthreadData;
+    int i = 0;
+    while (1)
+    {
+        if (pthread_mutex_trylock(&MUTEX[i]) == 0)
+        {
+            shops[i] += supplier->Capacity;
+            pthread_mutex_unlock(&MUTEX[i]);
+            if (COUNT_COMPLITED_CUSTOMERS == COUNT_CUSTOMERS)
+            {
+                pthread_exit(0);
+            }
+            sleep(supplier->TimeOfSleep);
+        }
+        i == COUNT_SHOPS - 1 ? i = 0 : i++;
+    }
 }
 
 int main()
 {
-    Buyer buyer[COUNT_BUYERS];
-    pthread_t buyerThreads[COUNT_BUYERS];
-
+    Customer customers[COUNT_CUSTOMERS];
     Supplier supplier;
-    pthread_t supplierThread;
-    supplier.how_to_replenish_the_store = 1000;
-    supplier.TimeToSleep = 2;
-    
-    int status = pthread_create(&supplierThread, NULL, bring_goods_to_the_store, &supplier);
-    if (status != 0)
+    pthread_t customerThreads[COUNT_CUSTOMERS],supplierThread;
+    int i, status;
+
+    for (i = 0; i < COUNT_CUSTOMERS; i++)
     {
-        printf("pthread error");
-        exit(PTHREAD_ERROR);
+        customers[i].Id = i;
+        customers[i].TimeOfSleep = 3;
+        customers[i].LeftToBuy = 10000;
     }
-    for (int i = 0; i < COUNT_BUYERS; i++)
+    supplier.TimeOfSleep = 2;
+    supplier.Capacity = 1000;
+
+    for (i = 0; i < COUNT_CUSTOMERS; i++)
     {
-        buyer->ID = i;
-        buyer->Left_to_buy = 10000;
-        buyer->TimeToSleep = 3;
-        status = pthread_create(&buyerThreads[i], NULL, buy, &buyer[i]);
+        status = pthread_create(&customerThreads[i], NULL, buy, &customers[i]);
         if (status != 0)
         {
-            printf("pthread error");
-            exit(PTHREAD_ERROR);
+            perror("pthread_create");
+            exit(-1);
         }
+    }
+    status = pthread_create(&supplierThread, NULL, deliver, &supplier);
+    if (status != 0)
+    {
+        perror("pthread_create");
+        exit(-1);
+    }
+
+    for (i = 0; i < COUNT_CUSTOMERS; i++)
+    {
+        status = pthread_join(customerThreads[i], NULL);
+        if (status != 0)
+        {
+            perror("pthread_join");
+            exit(-1);
+        }
+    }
+    status = pthread_join(supplierThread, NULL);
+    if (status != 0)
+    {
+        perror("pthread_join");
+        exit(-1);
     }
     return 0;
 }
