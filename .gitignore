@@ -19,5 +19,9 @@
 !work9
 !work10
 !work11
+!work12
+!work13
+!PthreadTCPApp
+!SerialUDPApp
 !POSIX
 !SystemV
